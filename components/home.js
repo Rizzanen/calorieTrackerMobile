@@ -7,6 +7,7 @@ import {
   Pressable,
   FlatList,
   Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import DoughnutChart from "./DoughnutChart";
@@ -22,13 +23,31 @@ const db = SQLite.openDatabase("nutrition.db");
 export default function Homepage() {
   const [searchWord, setSearchWord] = useState();
   const [searchResult, setSearchResult] = useState();
-  const [eatenProtein, setEatenProtein] = useState();
-  const [eatenKcal, setEatenKcal] = useState();
+  const [eatenProtein, setEatenProtein] = useState(0);
+  const [eatenKcal, setEatenKcal] = useState(0);
+  const [kcalGoal, setKcalGoal] = useState(3000);
+  const [proteinGoal, setProteinGoal] = useState(80);
+  const [currentKcal, setCurrentKcal] = useState();
+  const [currentProtein, setCurrentProtein] = useState();
 
   useEffect(() => {
+    // db.transaction(
+    //   (tx) => {
+    //     tx.executeSql("DELETE FROM nutritionData;");
+    //   },
+    //   (error) => {
+    //     console.error("Error when creating DB" + error);
+    //     reject();
+    //   },
+    //   () => {
+    //     console.log("success creating nutritionData db!");
+    //     resolve();
+    //   }
+    // );
     createDatabases()
       .then(() => {
         console.log("db creating was resolved");
+        updateData();
       })
       .catch(() => {
         console.log("creating db was rejected");
@@ -49,10 +68,91 @@ export default function Homepage() {
     setSearchWord("");
   };
 
-  const saveToDb = () => {
+  async function saveToDb() {
     console.log("starting saveToDb :)");
-  };
+    addToNutritionData().then(() => {
+      updateData();
+    });
+  }
   // tee teitokanta niin, että jokaiselle päivälle tulee vain yksi columni, jota päivitetään. jos päivä muutttuu luodaan uusi column.
+
+  async function addToNutritionData() {
+    return new Promise((resolve, reject) => {
+      let foundDate = false;
+
+      //check if there's already an entry for current date
+      db.transaction(
+        (tx) => {
+          tx.executeSql("select * from nutritionData;", [], (_, { rows }) => {
+            rows._array.forEach((item) => {
+              console.log(item.date);
+              if (item.date === formattedCurrentDate) {
+                foundDate = true;
+                console.log("foundDate: " + foundDate);
+                console.log("Current date already has an entry");
+              }
+            });
+          });
+        },
+        null,
+        () => {
+          // if date has entry only update the
+
+          let newEatenKcal;
+          let newEatenProtein;
+
+          newEatenKcal = parseFloat(currentKcal) + parseFloat(eatenKcal);
+
+          newEatenProtein =
+            parseFloat(currentProtein) + parseFloat(eatenProtein);
+
+          if (foundDate === true && newEatenKcal && newEatenProtein) {
+            console.log("eatenKcal new: " + newEatenKcal);
+            db.transaction(
+              (tx) => {
+                tx.executeSql(
+                  "update nutritionData set eatenKcal = ?, eatenProtein = ? where date = ?",
+                  [newEatenKcal, newEatenProtein, formattedCurrentDate]
+                );
+              },
+              (error) => {
+                console.error("Error when updating table" + error);
+                reject();
+              },
+              () => {
+                console.log("success creating nutritionData db!");
+                resolve();
+              }
+            );
+          } else {
+            db.transaction(
+              (tx) => {
+                tx.executeSql(
+                  "insert into nutritionData (date, eatenKcal , eatenProtein, kcalGoal, proteinGoal) values (?, ?, ?, ?, ?);",
+                  [
+                    formattedCurrentDate,
+                    parseFloat(eatenKcal).toFixed(2),
+                    parseFloat(eatenProtein).toFixed(2),
+                    kcalGoal,
+                    proteinGoal,
+                  ]
+                );
+              },
+              (error) => {
+                console.error("Error when creating DB" + error);
+                reject();
+              },
+              () => {
+                console.log("success creating nutritionData db!");
+                resolve();
+              }
+            );
+          }
+        }
+      );
+    });
+  }
+
   async function createDatabases() {
     return new Promise((resolve, reject) => {
       db.transaction(
@@ -61,109 +161,141 @@ export default function Homepage() {
             "create table if not exists nutritionData (id integer primary key not null, date text, eatenKcal real, eatenProtein real, kcalGoal real, proteinGoal real);"
           );
         },
-        () => {
-          console.error("Error when creating DB");
+        (error) => {
+          console.error("Error when creating DB" + error);
           reject();
         },
         () => {
           console.log("success creating nutritionData db!");
-          RefreshControlBase();
+          resolve();
         }
       );
     });
   }
 
+  const updateData = () => {
+    console.log("starting updateData");
+    db.transaction(
+      (tx) => {
+        tx.executeSql(
+          "select * from nutritionData where date = ?;",
+          [formattedCurrentDate],
+          (_, { rows }) => {
+            if (rows._array.length > 0) {
+              setCurrentKcal(rows._array[0].eatenKcal);
+              setCurrentProtein(rows._array[0].eatenProtein);
+              console.log(rows._array);
+            } else {
+              setCurrentKcal(0);
+              setCurrentProtein(0);
+            }
+          }
+        );
+      },
+      (error) => {
+        console.log("error in updateData: " + error);
+      },
+      () => {
+        console.log("update successfull");
+      }
+    );
+  };
+
   return (
-    <View style={styles.appContainer}>
-      <View style={styles.currentCaloriesContainer}>
-        <View style={styles.currentCaloriesHeader}>
-          <Text style={styles.header}>{formattedCurrentDate}</Text>
-        </View>
-        <View style={styles.currentCalorieDataContainer}>
-          <View style={styles.dailyGoals}>
-            <Text style={styles.text}>Goal: 3000 Kcal</Text>
-            <Text style={styles.text}>Protein goal: 80g </Text>
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <View style={styles.appContainer}>
+        <View style={styles.currentCaloriesContainer}>
+          <View style={styles.currentCaloriesHeader}>
+            <Text style={styles.header}>{formattedCurrentDate}</Text>
           </View>
-          <View style={styles.currentToTargetCalories}>
-            <DoughnutChart />
-            <DoughnutChart />
-          </View>
-        </View>
-      </View>
-      <View style={styles.addFoodsContainer}>
-        <View style={styles.searchFoodsHeaderContainer}>
-          <Text style={styles.header}>Search foods</Text>
-        </View>
-        <View style={styles.searchContainer}>
-          <TextInput
-            onChangeText={(text) => setSearchWord(text)}
-            placeholder="  example: 100g chicken"
-            style={styles.inputField}
-            value={searchWord}
-          />
-          <Pressable style={styles.button} onPress={() => search()}>
-            <Text style={styles.buttonText}>Search</Text>
-          </Pressable>
-        </View>
-        {searchResult && (
-          <View style={styles.searchResultContainer}>
-            <Text style={styles.searchResultHeader}>
-              {searchResult.serving_size_g} g {searchResult.name}
-            </Text>
-            <View style={styles.caloriesProteinContainer}>
-              <View style={styles.searchResultTextContainer}>
-                <Text style={styles.text}>
-                  Calories: {searchResult.calories}
-                </Text>
-              </View>
-              <View style={styles.searchResultTextContainer}>
-                <Text style={styles.text}>
-                  Protein: {searchResult.protein_g} g
-                </Text>
-              </View>
+          <View style={styles.currentCalorieDataContainer}>
+            <View style={styles.dailyGoals}>
+              <Text style={styles.text}>Goal: 3000 Kcal</Text>
+              <Text style={styles.text}>Protein goal: 80g </Text>
             </View>
-            <View style={styles.caloriesProteinContainer}>
-              <View style={styles.searchResultTextContainer}>
-                <Text style={styles.text}>
-                  Fat total: {searchResult.fat_total_g} g
-                </Text>
-              </View>
-              <View style={styles.searchResultTextContainer}>
-                <Text style={styles.text}>Sugar: {searchResult.sugar_g} g</Text>
-              </View>
+            <View style={styles.currentToTargetCalories}>
+              <DoughnutChart />
+              <DoughnutChart />
             </View>
           </View>
-        )}
-        <View style={styles.addEatenFoodsHeaderContainer}>
-          <Text style={styles.header}>Add eaten calories & proteins </Text>
         </View>
-        <View style={styles.addFoodsInputContainer}>
-          <View style={styles.addFoodsInputs}>
-            <TextInput
-              onChangeText={(text) => {
-                setEatenKcal(text);
-              }}
-              placeholder="Kcal"
-              value={eatenKcal}
-              style={styles.nutritionInput}
-            />
-            <TextInput
-              onChangeText={(text) => {
-                setEatenProtein(text);
-              }}
-              placeholder="protein in grams"
-              value={eatenProtein}
-              style={styles.nutritionInput}
-            />
+        <View style={styles.addFoodsContainer}>
+          <View style={styles.searchFoodsHeaderContainer}>
+            <Text style={styles.header}>Search foods</Text>
           </View>
-          <View style={styles.addButtonContainer}>
-            <Pressable style={styles.addButton} onPress={() => saveToDb()}>
-              <Text style={styles.buttonText}>Add</Text>
+          <View style={styles.searchContainer}>
+            <TextInput
+              onChangeText={(text) => setSearchWord(text)}
+              placeholder="  example: 100g chicken"
+              style={styles.inputField}
+              value={searchWord}
+            />
+            <Pressable style={styles.button} onPress={() => search()}>
+              <Text style={styles.buttonText}>Search</Text>
             </Pressable>
           </View>
+          {searchResult && (
+            <View style={styles.searchResultContainer}>
+              <Text style={styles.searchResultHeader}>
+                {searchResult.serving_size_g} g {searchResult.name}
+              </Text>
+              <View style={styles.caloriesProteinContainer}>
+                <View style={styles.searchResultTextContainer}>
+                  <Text style={styles.text}>
+                    Calories: {searchResult.calories}
+                  </Text>
+                </View>
+                <View style={styles.searchResultTextContainer}>
+                  <Text style={styles.text}>
+                    Protein: {searchResult.protein_g} g
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.caloriesProteinContainer}>
+                <View style={styles.searchResultTextContainer}>
+                  <Text style={styles.text}>
+                    Fat total: {searchResult.fat_total_g} g
+                  </Text>
+                </View>
+                <View style={styles.searchResultTextContainer}>
+                  <Text style={styles.text}>
+                    Sugar: {searchResult.sugar_g} g
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          <View style={styles.addEatenFoodsHeaderContainer}>
+            <Text style={styles.header}>Add eaten calories & proteins </Text>
+          </View>
+          <View style={styles.addFoodsInputContainer}>
+            <View style={styles.addFoodsInputs}>
+              <TextInput
+                onChangeText={(text) => {
+                  setEatenKcal(text);
+                }}
+                placeholder="Kcal"
+                value={eatenKcal}
+                style={styles.nutritionInput}
+              />
+              <TextInput
+                onChangeText={(text) => {
+                  setEatenProtein(text);
+                }}
+                placeholder="protein in grams"
+                value={eatenProtein}
+                style={styles.nutritionInput}
+              />
+            </View>
+            <View style={styles.addButtonContainer}>
+              <Pressable style={styles.addButton} onPress={() => saveToDb()}>
+                <Text style={styles.buttonText}>Add</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       </View>
-    </View>
+    </TouchableWithoutFeedback>
   );
 }
 
