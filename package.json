@@ -15,7 +15,8 @@
     "react": "18.2.0",
     "react-native": "0.73.4",
     "react-native-svg": "^15.1.0",
-    "expo-sqlite": "~13.3.0"
+    "expo-sqlite": "~13.3.0",
+    "@expo/vector-icons": "^14.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

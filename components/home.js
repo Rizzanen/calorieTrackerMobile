@@ -8,9 +8,12 @@ import {
   FlatList,
   Keyboard,
   TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import DoughnutChart from "./DoughnutChart";
+import { Ionicons } from "@expo/vector-icons";
 import * as SQLite from "expo-sqlite";
 
 let currentDate = new Date();
@@ -21,14 +24,18 @@ let formattedCurrentDate = `${currentDate.getDate()}.${
 const db = SQLite.openDatabase("nutrition.db");
 
 export default function Homepage() {
-  const [searchWord, setSearchWord] = useState();
+  const [searchWord, setSearchWord] = useState("");
   const [searchResult, setSearchResult] = useState();
   const [eatenProtein, setEatenProtein] = useState(0);
   const [eatenKcal, setEatenKcal] = useState(0);
-  const [kcalGoal, setKcalGoal] = useState(3000);
-  const [proteinGoal, setProteinGoal] = useState(80);
-  const [currentKcal, setCurrentKcal] = useState();
-  const [currentProtein, setCurrentProtein] = useState();
+  const [kcalGoal, setKcalGoal] = useState(0);
+  const [proteinGoal, setProteinGoal] = useState(0);
+  const [currentKcal, setCurrentKcal] = useState(0);
+  const [currentProtein, setCurrentProtein] = useState(0);
+  const [settingsPressed, setSettingsPressed] = useState(false);
+  const [proteinGoalInputValue, setProteinGoalInputValue] = useState(0);
+  const [kcalGoalInputValue, setKcalGoalInputValue] = useState(0);
+  const [updated, setUpdated] = useState(false);
 
   useEffect(() => {
     // db.transaction(
@@ -73,6 +80,8 @@ export default function Homepage() {
     addToNutritionData().then(() => {
       updateData();
     });
+    setEatenProtein(0);
+    setEatenKcal(0);
   }
   // tee teitokanta niin, että jokaiselle päivälle tulee vain yksi columni, jota päivitetään. jos päivä muutttuu luodaan uusi column.
 
@@ -184,10 +193,19 @@ export default function Homepage() {
             if (rows._array.length > 0) {
               setCurrentKcal(rows._array[0].eatenKcal);
               setCurrentProtein(rows._array[0].eatenProtein);
-              console.log(rows._array);
+              setKcalGoal(rows._array[0].kcalGoal);
+              setProteinGoal(rows._array[0].proteinGoal);
+              console.log(rows._array[0]);
+            } else if (rows._array.length === 0) {
+              setCurrentKcal(0);
+              setCurrentProtein(0);
+              setKcalGoal(0);
+              setProteinGoal(0);
             } else {
               setCurrentKcal(0);
               setCurrentProtein(0);
+              setKcalGoal(rows._array[0].kcalGoal);
+              setProteinGoal(rows._array[0].proteinGoal);
             }
           }
         );
@@ -197,28 +215,109 @@ export default function Homepage() {
       },
       () => {
         console.log("update successfull");
+        setUpdated(true);
       }
     );
   };
 
+  async function saveGoals() {
+    await addGoalsToNutritionData().then(() => {
+      setProteinGoalInputValue();
+      setKcalGoalInputValue();
+      updateData();
+    });
+    setSettingsPressed(!settingsPressed);
+  }
+
+  async function addGoalsToNutritionData() {
+    return new Promise((resolve, reject) => {
+      //check if there's already an entry for current date
+      db.transaction(
+        (tx) => {
+          tx.executeSql(
+            "update nutritionData set kcalGoal = ?, proteinGoal = ? where date = ?",
+            [kcalGoalInputValue, proteinGoalInputValue, formattedCurrentDate]
+          );
+        },
+        (error) => {
+          console.error("Error when updating table" + error);
+          reject();
+        },
+        () => {
+          console.log("success updating the goal - addGoalstoNutritionDb");
+          resolve();
+        }
+      );
+    });
+  }
+
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-      <View style={styles.appContainer}>
-        <View style={styles.currentCaloriesContainer}>
-          <View style={styles.currentCaloriesHeader}>
-            <Text style={styles.header}>{formattedCurrentDate}</Text>
-          </View>
-          <View style={styles.currentCalorieDataContainer}>
-            <View style={styles.dailyGoals}>
-              <Text style={styles.text}>Goal: 3000 Kcal</Text>
-              <Text style={styles.text}>Protein goal: 80g </Text>
-            </View>
-            <View style={styles.currentToTargetCalories}>
-              <DoughnutChart />
-              <DoughnutChart />
-            </View>
-          </View>
+      <KeyboardAvoidingView
+        style={styles.appContainer}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.iconContainer}>
+          <Text style={styles.appHeader}>Calorie tracker</Text>
+          <Ionicons
+            name="settings-outline"
+            style={styles.settingIcon}
+            onPress={() => setSettingsPressed(!settingsPressed)}
+          />
         </View>
+        {settingsPressed && (
+          <View style={styles.settingInputsContainer}>
+            <Text style={styles.header}>Set your daily goals</Text>
+            <TextInput
+              onChangeText={(text) => {
+                setKcalGoalInputValue(text);
+              }}
+              placeholder="Kcal goal"
+              value={kcalGoalInputValue}
+              style={styles.nutritionInput}
+            />
+            <TextInput
+              onChangeText={(text) => {
+                setProteinGoalInputValue(text);
+              }}
+              placeholder="Protein goal"
+              value={proteinGoalInputValue}
+              style={styles.nutritionInput}
+            />
+            <Pressable
+              style={styles.saveGoalsButton}
+              onPress={() => saveGoals()}
+            >
+              <Text style={styles.buttonText}>Save goals</Text>
+            </Pressable>
+          </View>
+        )}
+        {updated && (
+          <View style={styles.currentCaloriesContainer}>
+            <View style={styles.currentCaloriesHeader}>
+              <Text style={styles.header}>{formattedCurrentDate}</Text>
+            </View>
+            <View style={styles.currentCalorieDataContainer}>
+              <View style={styles.dailyGoals}>
+                <Text style={styles.text}>Kcal goal: {kcalGoal}</Text>
+                <Text style={styles.text}>Protein goal: {proteinGoal}g </Text>
+              </View>
+              <View style={styles.currentToTargetCalories}>
+                <DoughnutChart
+                  percentage={currentKcal}
+                  max={kcalGoal}
+                  text={"kcal"}
+                />
+                <DoughnutChart
+                  percentage={currentProtein}
+                  max={proteinGoal}
+                  text={"g"}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={styles.addFoodsContainer}>
           <View style={styles.searchFoodsHeaderContainer}>
             <Text style={styles.header}>Search foods</Text>
@@ -294,7 +393,7 @@ export default function Homepage() {
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
 }
@@ -344,17 +443,20 @@ const styles = StyleSheet.create({
 
   currentToTargetCalories: {
     width: "30%",
-    justifyContent: "center",
+    justifyContent: "space-around",
     alignItems: "center",
     borderRadius: "80%",
     width: "100%",
     flexDirection: "row",
+    paddingTop: 40,
+    paddingBottom: 20,
   },
   dailyGoals: {
     color: "white",
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
+    paddingTop: 20,
   },
   addFoodsContainer: {
     backgroundColor: "#023E8A",
@@ -445,6 +547,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 80,
     height: 90,
+    marginTop: 9,
+  },
+  iconContainer: {
+    marginLeft: "auto",
+    paddingTop: 10,
+    paddingRight: 20,
+    display: "flex",
+    flexDirection: "row",
+    width: "100%",
+  },
+  settingIcon: {
+    fontSize: 30,
+    color: "white",
+  },
+  appHeader: {
+    fontSize: 25,
+    color: "#CAF0F8",
+    fontWeight: "800",
+    marginLeft: "auto",
+    marginRight: 55,
+  },
+  settingInputsContainer: {
+    marginTop: 10,
+    backgroundColor: "#023E8A",
+    width: "95%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#CAF0F8",
+    borderRadius: 30,
+    marginBottom: 10,
+    height: "35%",
+  },
+  saveGoalsButton: {
+    backgroundColor: "#CAF0F8",
+    borderWidth: 2,
+    borderColor: "#0077B6",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 120,
+    height: 50,
     marginTop: 9,
   },
 });

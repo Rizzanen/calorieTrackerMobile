@@ -8,7 +8,7 @@ const AnimatedInput = Animated.createAnimatedComponent(TextInput);
 export default function DoughnutChart({
   percentage = 33,
   //radius of the circle
-  radius = 90,
+  radius = 80,
   //the doughnut lines width
   strokeWidth = 20,
   duration = 500,
@@ -16,6 +16,7 @@ export default function DoughnutChart({
   delay = 0,
   textColor,
   max = 100,
+  text = "",
 }) {
   const inputRef = React.useRef();
   const circleRef = React.useRef();
@@ -36,7 +37,12 @@ export default function DoughnutChart({
 
     animatedValue.addListener((v) => {
       if (circleRef?.current) {
-        const maxPercentage = (100 * v.value) / max;
+        const maxPercentage =
+          isNaN(v.value) || isNaN(max)
+            ? 0
+            : v.value > max
+            ? 100
+            : (v.value * 100) / max;
         const strokeDashoffset =
           circleCircumfrence - (circleCircumfrence * maxPercentage) / 100;
         circleRef.current.setNativeProps({ strokeDashoffset });
@@ -44,7 +50,7 @@ export default function DoughnutChart({
 
       if (inputRef?.current) {
         inputRef.current.setNativeProps({
-          text: `${Math.round(v.value)} \n kcal `,
+          text: `${Math.round(v.value)} ${text}`,
         });
       }
     });
