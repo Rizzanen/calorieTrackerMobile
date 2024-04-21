@@ -16,6 +16,7 @@ import DoughnutChart from "./DoughnutChart";
 import { Ionicons } from "@expo/vector-icons";
 import * as SQLite from "expo-sqlite";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Camera } from "expo-camera";
 
 let currentDate = new Date();
 let formattedCurrentDate = `${currentDate.getDate()}.${
@@ -38,6 +39,9 @@ export default function Homepage() {
   const [kcalGoalInputValue, setKcalGoalInputValue] = useState("");
   const [updated, setUpdated] = useState(false);
 
+  const [cameraPermission, setCameraPermission] = useState(null);
+  const [scanned, setScanned] = useState(false);
+
   useEffect(() => {
     // db.transaction(
     //   (tx) => {
@@ -57,6 +61,7 @@ export default function Homepage() {
         console.log("db creating was resolved");
         updateData();
       })
+
       .catch(() => {
         console.log("creating db was rejected");
       });
@@ -190,7 +195,6 @@ export default function Homepage() {
 
   const updateData = () => {
     console.log("starting updateData");
-    let foundItems = false;
     db.transaction(
       (tx) => {
         tx.executeSql(
@@ -235,8 +239,8 @@ export default function Homepage() {
   };
   async function saveGoals() {
     await addGoalsToNutritionData().then(() => {
-      setProteinGoalInputValue();
-      setKcalGoalInputValue();
+      setProteinGoalInputValue("");
+      setKcalGoalInputValue("");
       updateData();
     });
     setSettingsPressed(!settingsPressed);

@@ -4,6 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { FontAwesome6 } from "@expo/vector-icons";
 import Historypage from "./components/history";
 import Homepage from "./components/home";
+import Scanner from "./components/Scanner";
 
 const Tab = createBottomTabNavigator();
 
@@ -46,6 +47,7 @@ export default function App() {
       >
         <Tab.Screen name="Home" component={Homepage} />
         <Tab.Screen name="History" component={Historypage} />
+        <Tab.Screen name="Scanner" component={Scanner} />
       </Tab.Navigator>
     </NavigationContainer>
   );

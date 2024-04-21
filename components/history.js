@@ -56,7 +56,7 @@ export default function Historypage() {
       </View>
       <View style={styles.historyListContainer}>
         <FlatList
-          data={history} // Data array to render
+          data={history}
           renderItem={({ item }) => (
             <View style={styles.historyItem}>
               <View style={styles.historyDateContainer}>
