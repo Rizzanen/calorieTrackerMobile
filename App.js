@@ -5,6 +5,7 @@ import { FontAwesome6 } from "@expo/vector-icons";
 import Historypage from "./components/history";
 import Homepage from "./components/home";
 import Scanner from "./components/Scanner";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
 
@@ -41,6 +42,14 @@ export default function App() {
               );
             } else if (route.name === "Home") {
               return <Ionicons name={"home"} size={size} color={color} />;
+            } else if (route.name === "Scanner") {
+              return (
+                <MaterialCommunityIcons
+                  name="barcode-scan"
+                  size={size}
+                  color={color}
+                />
+              );
             }
           },
         })}
