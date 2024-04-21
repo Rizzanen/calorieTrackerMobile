@@ -58,7 +58,7 @@ export default function Historypage() {
         <FlatList
           data={history} // Data array to render
           renderItem={({ item }) => (
-            <ScrollView style={styles.historyItem}>
+            <View style={styles.historyItem}>
               <View style={styles.historyDateContainer}>
                 <Text style={styles.listHeader}>{item.date}</Text>
               </View>
@@ -77,7 +77,7 @@ export default function Historypage() {
                   Protein goal: {item.proteinGoal}
                 </Text>
               </View>
-            </ScrollView>
+            </View>
           )}
           // Render function for each item
           keyExtractor={(item, index) => index.toString()} // Key extractor for unique keys

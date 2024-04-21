@@ -15,6 +15,7 @@ import React, { useState, useEffect } from "react";
 import DoughnutChart from "./DoughnutChart";
 import { Ionicons } from "@expo/vector-icons";
 import * as SQLite from "expo-sqlite";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 let currentDate = new Date();
 let formattedCurrentDate = `${currentDate.getDate()}.${
@@ -26,15 +27,15 @@ const db = SQLite.openDatabase("nutrition.db");
 export default function Homepage() {
   const [searchWord, setSearchWord] = useState("");
   const [searchResult, setSearchResult] = useState();
-  const [eatenProtein, setEatenProtein] = useState(0);
-  const [eatenKcal, setEatenKcal] = useState(0);
+  const [eatenProtein, setEatenProtein] = useState("");
+  const [eatenKcal, setEatenKcal] = useState("");
   const [kcalGoal, setKcalGoal] = useState(0);
   const [proteinGoal, setProteinGoal] = useState(0);
   const [currentKcal, setCurrentKcal] = useState(0);
   const [currentProtein, setCurrentProtein] = useState(0);
   const [settingsPressed, setSettingsPressed] = useState(false);
-  const [proteinGoalInputValue, setProteinGoalInputValue] = useState(0);
-  const [kcalGoalInputValue, setKcalGoalInputValue] = useState(0);
+  const [proteinGoalInputValue, setProteinGoalInputValue] = useState("");
+  const [kcalGoalInputValue, setKcalGoalInputValue] = useState("");
   const [updated, setUpdated] = useState(false);
 
   useEffect(() => {
@@ -80,8 +81,8 @@ export default function Homepage() {
     addToNutritionData().then(() => {
       updateData();
     });
-    setEatenProtein(0);
-    setEatenKcal(0);
+    setEatenProtein("");
+    setEatenKcal("");
   }
   // tee teitokanta niin, että jokaiselle päivälle tulee vain yksi columni, jota päivitetään. jos päivä muutttuu luodaan uusi column.
 
@@ -121,7 +122,11 @@ export default function Homepage() {
               (tx) => {
                 tx.executeSql(
                   "update nutritionData set eatenKcal = ?, eatenProtein = ? where date = ?",
-                  [newEatenKcal, newEatenProtein, formattedCurrentDate]
+                  [
+                    newEatenKcal.toFixed(2),
+                    newEatenProtein.toFixed(2),
+                    formattedCurrentDate,
+                  ]
                 );
               },
               (error) => {
@@ -153,6 +158,7 @@ export default function Homepage() {
               },
               () => {
                 console.log("success creating nutritionData db!");
+
                 resolve();
               }
             );
@@ -184,6 +190,7 @@ export default function Homepage() {
 
   const updateData = () => {
     console.log("starting updateData");
+    let foundItems = false;
     db.transaction(
       (tx) => {
         tx.executeSql(
@@ -191,35 +198,41 @@ export default function Homepage() {
           [formattedCurrentDate],
           (_, { rows }) => {
             if (rows._array.length > 0) {
+              foundItems = true;
               setCurrentKcal(rows._array[0].eatenKcal);
               setCurrentProtein(rows._array[0].eatenProtein);
               setKcalGoal(rows._array[0].kcalGoal);
               setProteinGoal(rows._array[0].proteinGoal);
               console.log(rows._array[0]);
-            } else if (rows._array.length === 0) {
-              setCurrentKcal(0);
-              setCurrentProtein(0);
-              setKcalGoal(0);
-              setProteinGoal(0);
             } else {
               setCurrentKcal(0);
               setCurrentProtein(0);
-              setKcalGoal(rows._array[0].kcalGoal);
-              setProteinGoal(rows._array[0].proteinGoal);
+              tx.executeSql(
+                "select * from nutritionData order by id desc limit 1;",
+                [],
+                (_, { rows }) => {
+                  if (rows._array.length > 0) {
+                    console.log("Last entry in history:", rows._array[0]);
+                    setKcalGoal(rows._array[0].kcalGoal);
+                    setProteinGoal(rows._array[0].proteinGoal);
+                  } else {
+                    console.log("No entries found in history.");
+                  }
+                }
+              );
             }
           }
         );
       },
       (error) => {
-        console.log("error in updateData: " + error);
+        console.log("Error in updateData: " + error);
       },
       () => {
-        console.log("update successfull");
+        console.log("Update successful");
         setUpdated(true);
       }
     );
   };
-
   async function saveGoals() {
     await addGoalsToNutritionData().then(() => {
       setProteinGoalInputValue();
@@ -253,9 +266,11 @@ export default function Homepage() {
 
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-      <KeyboardAvoidingView
-        style={styles.appContainer}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      <KeyboardAwareScrollView
+        style={{ backgroundColor: "#023E8A" }}
+        resetScrollToCoords={{ x: 0, y: 0 }}
+        contentContainerStyle={styles.appContainer}
+        scrollEnabled={false}
       >
         <View style={styles.iconContainer}>
           <Text style={styles.appHeader}>Calorie tracker</Text>
@@ -273,7 +288,7 @@ export default function Homepage() {
                 setKcalGoalInputValue(text);
               }}
               placeholder="Kcal goal"
-              value={kcalGoalInputValue}
+              value={kcalGoalInputValue.toString()}
               style={styles.nutritionInput}
             />
             <TextInput
@@ -281,7 +296,7 @@ export default function Homepage() {
                 setProteinGoalInputValue(text);
               }}
               placeholder="Protein goal"
-              value={proteinGoalInputValue}
+              value={proteinGoalInputValue.toString()}
               style={styles.nutritionInput}
             />
             <Pressable
@@ -371,19 +386,21 @@ export default function Homepage() {
             <View style={styles.addFoodsInputs}>
               <TextInput
                 onChangeText={(text) => {
-                  setEatenKcal(text);
+                  setEatenKcal(text.replace(",", "."));
                 }}
                 placeholder="Kcal"
-                value={eatenKcal}
+                value={eatenKcal.toString()}
                 style={styles.nutritionInput}
+                keyboardType="numeric"
               />
               <TextInput
                 onChangeText={(text) => {
-                  setEatenProtein(text);
+                  setEatenProtein(text.replace(",", "."));
                 }}
                 placeholder="protein in grams"
-                value={eatenProtein}
+                value={eatenProtein.toString()}
                 style={styles.nutritionInput}
+                keyboardType="numeric"
               />
             </View>
             <View style={styles.addButtonContainer}>
@@ -393,7 +410,7 @@ export default function Homepage() {
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </TouchableWithoutFeedback>
   );
 }
@@ -416,7 +433,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#CAF0F8",
     borderRadius: 30,
-    marginTop: "2%",
+    marginTop: "3%",
   },
   currentCaloriesHeader: {
     width: "100%",
@@ -448,7 +465,7 @@ const styles = StyleSheet.create({
     borderRadius: "80%",
     width: "100%",
     flexDirection: "row",
-    paddingTop: 40,
+
     paddingBottom: 20,
   },
   dailyGoals: {

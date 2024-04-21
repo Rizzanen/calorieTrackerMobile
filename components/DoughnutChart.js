@@ -11,7 +11,7 @@ export default function DoughnutChart({
   radius = 80,
   //the doughnut lines width
   strokeWidth = 20,
-  duration = 500,
+  duration = 1500,
   color = "#90E0EF",
   delay = 0,
   textColor,
