@@ -38,7 +38,7 @@ export default function DoughnutChart({
     animatedValue.addListener((v) => {
       if (circleRef?.current) {
         const maxPercentage =
-          isNaN(v.value) || isNaN(max)
+          isNaN(v.value) || max === 0
             ? 0
             : v.value > max
             ? 100

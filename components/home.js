@@ -38,6 +38,7 @@ export default function Homepage() {
   const [proteinGoalInputValue, setProteinGoalInputValue] = useState("");
   const [kcalGoalInputValue, setKcalGoalInputValue] = useState("");
   const [updated, setUpdated] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   const [cameraPermission, setCameraPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
@@ -68,6 +69,7 @@ export default function Homepage() {
   }, []);
 
   const search = () => {
+    setNotFound(false);
     console.log("searching and shit");
     fetch(`https://api.calorieninjas.com/v1/nutrition?query=${searchWord}`, {
       headers: {
@@ -75,7 +77,12 @@ export default function Homepage() {
       },
     })
       .then((response) => response.json())
-      .then((data) => setSearchResult(data.items[0]));
+      .then((data) => {
+        setSearchResult(data.items[0]);
+        if (!data.items[0]) {
+          setNotFound(true);
+        }
+      });
 
     Keyboard.dismiss();
     setSearchWord("");
@@ -221,6 +228,11 @@ export default function Homepage() {
                     setProteinGoal(rows._array[0].proteinGoal);
                   } else {
                     console.log("No entries found in history.");
+
+                    tx.executeSql(
+                      "insert into nutritionData (date, eatenKcal , eatenProtein, kcalGoal, proteinGoal) values (?, ?, ?, ?, ?);",
+                      [formattedCurrentDate, 0, 0, 2500, 80]
+                    );
                   }
                 }
               );
@@ -381,6 +393,11 @@ export default function Homepage() {
                   </Text>
                 </View>
               </View>
+            </View>
+          )}
+          {notFound && (
+            <View style={styles.searchResultContainer}>
+              <Text style={styles.searchResultHeader}>Item not found</Text>
             </View>
           )}
           <View style={styles.addEatenFoodsHeaderContainer}>

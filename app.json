@@ -25,6 +25,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6f4b22cb-a755-4245-95fc-baed11a243a0"
+      }
+    },
+    "owner": "rizzanen",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6f4b22cb-a755-4245-95fc-baed11a243a0"
     }
   }
 }
