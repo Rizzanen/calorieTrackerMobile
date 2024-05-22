@@ -7,7 +7,7 @@ import {
   Pressable,
   ScrollView,
 } from "react-native";
-import * as SQLite from "expo-sqlite";
+import * as SQLite from "expo-sqlite/legacy";
 
 let currentDate = new Date();
 let formattedCurrentDate = `${currentDate.getDate()}.${
@@ -20,13 +20,12 @@ export default function Historypage() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    // console.log("at history page");
     updateData();
   }, []);
-  //jos history ei näy johtuu updateDatan if statementistä, koska tietokannassa ei ole kuin tältä päivältä dataa.
+  // get all data from db and set it to variable.
   const updateData = () => {
     setHistory([]);
-    // console.log("starting updateData");
+
     db.transaction(
       (tx) => {
         tx.executeSql("select * from nutritionData ;", [], (_, { rows }) => {
@@ -34,7 +33,6 @@ export default function Historypage() {
             rows._array.reverse().forEach((item) => {
               if (item.date !== formattedCurrentDate) {
                 setHistory((prevHistory) => [...prevHistory, item]);
-                // console.log("item in history set!");
               }
             });
           }
@@ -96,7 +94,7 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 40,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "800",
     marginBottom: 10,
   },
@@ -106,14 +104,14 @@ const styles = StyleSheet.create({
   historyListContainer: {
     flex: 1,
     borderWidth: 2,
-    borderColor: "#CAF0F8",
+    borderColor: "orange",
     borderRadius: 30,
     width: "95%",
     marginBottom: 20,
   },
   historyItem: {
     borderBottomWidth: 2,
-    borderColor: "#CAF0F8",
+    borderColor: "orange",
   },
   historyDateContainer: {
     justifyContent: "center",
@@ -122,12 +120,12 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     fontSize: 30,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "600",
   },
   listText: {
     fontSize: 18,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "600",
   },
   listTextContainer: {

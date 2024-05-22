@@ -2,21 +2,17 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TextInput,
   Pressable,
-  FlatList,
   Keyboard,
   TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import DoughnutChart from "./DoughnutChart";
 import { Ionicons } from "@expo/vector-icons";
-import * as SQLite from "expo-sqlite";
+import * as SQLite from "expo-sqlite/legacy";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { Camera } from "expo-camera";
+import createDatabases from "./createDB";
 
 let currentDate = new Date();
 let formattedCurrentDate = `${currentDate.getDate()}.${
@@ -30,8 +26,8 @@ export default function Homepage() {
   const [searchResult, setSearchResult] = useState();
   const [eatenProtein, setEatenProtein] = useState("");
   const [eatenKcal, setEatenKcal] = useState("");
-  const [kcalGoal, setKcalGoal] = useState(0);
-  const [proteinGoal, setProteinGoal] = useState(0);
+  const [kcalGoal, setKcalGoal] = useState(2800);
+  const [proteinGoal, setProteinGoal] = useState(90);
   const [currentKcal, setCurrentKcal] = useState(0);
   const [currentProtein, setCurrentProtein] = useState(0);
   const [settingsPressed, setSettingsPressed] = useState(false);
@@ -39,9 +35,6 @@ export default function Homepage() {
   const [kcalGoalInputValue, setKcalGoalInputValue] = useState("");
   const [updated, setUpdated] = useState(false);
   const [notFound, setNotFound] = useState(false);
-
-  const [cameraPermission, setCameraPermission] = useState(null);
-  const [scanned, setScanned] = useState(false);
 
   useEffect(() => {
     // db.transaction(
@@ -68,9 +61,10 @@ export default function Homepage() {
       });
   }, []);
 
+  //fetch calorieninjas api with searchword and set the result to searchResult. if data is not found setNotfound state to true which triggers "Item not found" text to show in app.
   const search = () => {
     setNotFound(false);
-    console.log("searching and shit");
+
     fetch(`https://api.calorieninjas.com/v1/nutrition?query=${searchWord}`, {
       headers: {
         "X-Api-Key": "1NCL2QnaNfKPnwFzFlWyGQ==rtw2xVObNjB0h2tS",
@@ -88,48 +82,50 @@ export default function Homepage() {
     setSearchWord("");
   };
 
+  //function that triggers addToNutritionData function and after it has completed it triggers updateData function.
   async function saveToDb() {
-    console.log("starting saveToDb :)");
     addToNutritionData().then(() => {
       updateData();
     });
     setEatenProtein("");
     setEatenKcal("");
   }
-  // tee teitokanta niin, että jokaiselle päivälle tulee vain yksi columni, jota päivitetään. jos päivä muutttuu luodaan uusi column.
 
+  //function that adds data to nutritionData.
   async function addToNutritionData() {
     return new Promise((resolve, reject) => {
       let foundDate = false;
-
-      //check if there's already an entry for current date
+      // get all data from nutritionData and check if db has data with current date.
       db.transaction(
         (tx) => {
           tx.executeSql("select * from nutritionData;", [], (_, { rows }) => {
             rows._array.forEach((item) => {
-              console.log(item.date);
               if (item.date === formattedCurrentDate) {
                 foundDate = true;
-                console.log("foundDate: " + foundDate);
-                console.log("Current date already has an entry");
               }
             });
           });
         },
         null,
         () => {
-          // if date has entry only update the
-
           let newEatenKcal;
           let newEatenProtein;
+          //Then calculate the kcal and protein values which will be saved to db.
+          if (eatenKcal === "") {
+            newEatenKcal = parseFloat(currentKcal);
+            newEatenProtein =
+              parseFloat(currentProtein) + parseFloat(eatenProtein);
+          } else if (eatenProtein === "") {
+            newEatenProtein = parseFloat(currentProtein);
+            newEatenKcal = parseFloat(currentKcal) + parseFloat(eatenKcal);
+          } else {
+            newEatenKcal = parseFloat(currentKcal) + parseFloat(eatenKcal);
 
-          newEatenKcal = parseFloat(currentKcal) + parseFloat(eatenKcal);
-
-          newEatenProtein =
-            parseFloat(currentProtein) + parseFloat(eatenProtein);
-
+            newEatenProtein =
+              parseFloat(currentProtein) + parseFloat(eatenProtein);
+          }
+          //if there is data with current date update the row with the current date.
           if (foundDate === true && newEatenKcal && newEatenProtein) {
-            console.log("eatenKcal new: " + newEatenKcal);
             db.transaction(
               (tx) => {
                 tx.executeSql(
@@ -142,7 +138,7 @@ export default function Homepage() {
                 );
               },
               (error) => {
-                console.error("Error when updating table" + error);
+                console.error("Error when updating nutritionData" + error);
                 reject();
               },
               () => {
@@ -150,6 +146,7 @@ export default function Homepage() {
                 resolve();
               }
             );
+            // if there's no data with current date insert a new value.
           } else {
             db.transaction(
               (tx) => {
@@ -180,28 +177,9 @@ export default function Homepage() {
     });
   }
 
-  async function createDatabases() {
-    return new Promise((resolve, reject) => {
-      db.transaction(
-        (tx) => {
-          tx.executeSql(
-            "create table if not exists nutritionData (id integer primary key not null, date text, eatenKcal real, eatenProtein real, kcalGoal real, proteinGoal real);"
-          );
-        },
-        (error) => {
-          console.error("Error when creating DB" + error);
-          reject();
-        },
-        () => {
-          console.log("success creating nutritionData db!");
-          resolve();
-        }
-      );
-    });
-  }
-
+  //function that updates the data displayed on the app.
   const updateData = () => {
-    console.log("starting updateData");
+    //get all data with current date and set it to useState hooks.
     db.transaction(
       (tx) => {
         tx.executeSql(
@@ -214,8 +192,8 @@ export default function Homepage() {
               setCurrentProtein(rows._array[0].eatenProtein);
               setKcalGoal(rows._array[0].kcalGoal);
               setProteinGoal(rows._array[0].proteinGoal);
-              console.log(rows._array[0]);
             } else {
+              //if no data is found with current date, set the protein goals from last row in database
               setCurrentKcal(0);
               setCurrentProtein(0);
               tx.executeSql(
@@ -223,11 +201,10 @@ export default function Homepage() {
                 [],
                 (_, { rows }) => {
                   if (rows._array.length > 0) {
-                    console.log("Last entry in history:", rows._array[0]);
                     setKcalGoal(rows._array[0].kcalGoal);
                     setProteinGoal(rows._array[0].proteinGoal);
                   } else {
-                    console.log("No entries found in history.");
+                    // if theres no rows in db set default goal values in db.
 
                     tx.executeSql(
                       "insert into nutritionData (date, eatenKcal , eatenProtein, kcalGoal, proteinGoal) values (?, ?, ?, ?, ?);",
@@ -249,6 +226,7 @@ export default function Homepage() {
       }
     );
   };
+  //function that first executes addGoalsToNutritionData and after it sets empty values to useState hooks and calls updateData function.
   async function saveGoals() {
     await addGoalsToNutritionData().then(() => {
       setProteinGoalInputValue("");
@@ -257,10 +235,9 @@ export default function Homepage() {
     });
     setSettingsPressed(!settingsPressed);
   }
-
+  //updates kcalGoal and proteinGoal to db with inserted values.
   async function addGoalsToNutritionData() {
     return new Promise((resolve, reject) => {
-      //check if there's already an entry for current date
       db.transaction(
         (tx) => {
           tx.executeSql(
@@ -306,6 +283,7 @@ export default function Homepage() {
               placeholder="Kcal goal"
               value={kcalGoalInputValue.toString()}
               style={styles.nutritionInput}
+              keyboardType="numeric"
             />
             <TextInput
               onChangeText={(text) => {
@@ -314,6 +292,7 @@ export default function Homepage() {
               placeholder="Protein goal"
               value={proteinGoalInputValue.toString()}
               style={styles.nutritionInput}
+              keyboardType="numeric"
             />
             <Pressable
               style={styles.saveGoalsButton}
@@ -450,51 +429,51 @@ const styles = StyleSheet.create({
   currentCaloriesContainer: {
     backgroundColor: "#023E8A",
     width: "96%",
-    height: "41%",
+    height: "36%",
     borderWidth: 2,
     borderColor: "#CAF0F8",
     borderRadius: 30,
     marginTop: "3%",
+    marginBottom: 20,
+    shadowColor: "white",
+    shadowOpacity: 1,
+    shadowRadius: 10,
   },
   currentCaloriesHeader: {
     width: "100%",
-    marginTop: "5%",
+    marginTop: 15,
     alignItems: "center",
     justifyContent: "center",
   },
   header: {
     fontSize: 25,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "800",
   },
   text: {
     fontSize: 20,
-    color: "#CAF0F8",
+    color: "white",
   },
   currentCalorieDataContainer: {
     backgroundColor: "#023E8A",
-    justifyContent: "space-around",
-    flex: 1,
     borderBottomRightRadius: 30,
     borderBottomLeftRadius: 30,
   },
 
   currentToTargetCalories: {
-    width: "30%",
     justifyContent: "space-around",
     alignItems: "center",
     borderRadius: "80%",
     width: "100%",
     flexDirection: "row",
-
-    paddingBottom: 20,
   },
   dailyGoals: {
     color: "white",
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingTop: 20,
+    marginTop: 10,
+    marginBottom: 10,
   },
   addFoodsContainer: {
     backgroundColor: "#023E8A",
@@ -504,11 +483,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inputField: {
-    backgroundColor: "#CAF0F8",
+    backgroundColor: "white",
     height: 35,
     width: "70%",
-    borderWidth: 2,
-    borderColor: "#0077B6",
+    borderWidth: 4,
+    borderColor: "white",
     height: "100%",
     color: "#023E8A",
   },
@@ -519,17 +498,18 @@ const styles = StyleSheet.create({
     marginTop: "2%",
   },
   button: {
-    backgroundColor: "#CAF0F8",
-    borderWidth: 2,
-    borderColor: "#0077B6",
+    backgroundColor: "#023E8A",
+    borderWidth: 3,
+    borderColor: "white",
     alignItems: "center",
     justifyContent: "center",
     width: 80,
   },
   buttonText: {
     padding: 10,
-    color: "#023E8A",
+    color: "orange",
     fontWeight: "600",
+    fontSize: 16,
   },
   caloriesProteinContainer: {
     flexDirection: "row",
@@ -544,7 +524,7 @@ const styles = StyleSheet.create({
     width: "100%",
     marginTop: 20,
     fontSize: 20,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "800",
     marginLeft: "auto",
     marginRight: "auto",
@@ -564,11 +544,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
   },
   nutritionInput: {
-    backgroundColor: "#CAF0F8",
+    backgroundColor: "white",
     height: 35,
     width: 265,
-    borderWidth: 2,
-    borderColor: "#0077B6",
+    borderWidth: 3,
+    borderColor: "white",
     height: 40,
     color: "#023E8A",
     marginTop: 10,
@@ -578,9 +558,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addButton: {
-    backgroundColor: "#CAF0F8",
-    borderWidth: 2,
-    borderColor: "#0077B6",
+    backgroundColor: "#023E8A",
+    borderWidth: 3,
+    borderColor: "white",
     alignItems: "center",
     justifyContent: "center",
     width: 80,
@@ -597,11 +577,11 @@ const styles = StyleSheet.create({
   },
   settingIcon: {
     fontSize: 30,
-    color: "white",
+    color: "orange",
   },
   appHeader: {
     fontSize: 25,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "800",
     marginLeft: "auto",
     marginRight: 55,
@@ -619,9 +599,9 @@ const styles = StyleSheet.create({
     height: "35%",
   },
   saveGoalsButton: {
-    backgroundColor: "#CAF0F8",
-    borderWidth: 2,
-    borderColor: "#0077B6",
+    backgroundColor: "#023E8A",
+    borderWidth: 3,
+    borderColor: "white",
     alignItems: "center",
     justifyContent: "center",
     width: 120,

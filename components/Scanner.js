@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Button,
-  FlatList,
-  Pressable,
-} from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import { BarCodeScanner } from "expo-barcode-scanner";
 
 export default function Scanner() {
@@ -20,31 +12,36 @@ export default function Scanner() {
   const [showCamera, setShowCamera] = useState(false);
   const [itemNotFound, setItemNotFound] = useState(false);
 
+  //ask permission from user to use camera.
   useEffect(() => {
     (async () => {
       const { status } = await BarCodeScanner.requestPermissionsAsync();
       setHasPermission(status === "granted");
     })();
   }, []);
-
+  //call fetchItemByBarcode with the barcode as parameters
   const handleBarCodeScanned = ({ type, data }) => {
     setScanned(true);
 
     fetchItemByBarcode(data);
     setShowCamera(false);
   };
-
+  // fetch items with the scanned barcode. check if data was found with barcode and if was, set it to variables.
   const fetchItemByBarcode = (barcode) => {
     fetch(
       `https://world.openfoodfacts.net/api/v2/product/${barcode}?fields=product_name,nutriscore_data,nutriments`
     )
       .then((response) => response.json())
       .then((data) => {
-        if (data.status_verbose === "product not found") {
+        if (
+          data.status_verbose === "product not found" ||
+          !data.product.nutriments ||
+          !data.product.product_name ||
+          !data.product.nutriscore_data.energy
+        ) {
           setItemNotFound(true);
           return;
         } else {
-          console.log("setting data: " + data.status_verbose);
           setProductData(data.product.nutriments);
           setProductName(data.product.product_name);
           let kcal = data.product.nutriscore_data.energy / 4.181;
@@ -130,21 +127,21 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 18,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "800",
     marginBottom: 10,
   },
   button: {
-    backgroundColor: "#CAF0F8",
+    backgroundColor: "#023E8A",
     borderWidth: 2,
-    borderColor: "#0077B6",
+    borderColor: "white",
     alignItems: "center",
     justifyContent: "center",
     width: 180,
   },
   buttonText: {
     padding: 10,
-    color: "#023E8A",
+    color: "orange",
     fontWeight: "600",
   },
   results: {
@@ -155,12 +152,19 @@ const styles = StyleSheet.create({
   resultsContainer: {
     alignItems: "center",
     marginTop: 100,
+    borderRadius: 10,
+    borderColor: "orange",
+    borderWidth: 2,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   cameraContainer: {
     width: "80%",
     aspectRatio: 1,
     overflow: "hidden",
     borderRadius: 10,
+    borderColor: "orange",
+    borderWidth: 2,
     marginBottom: 40,
   },
   camera: {
@@ -168,9 +172,13 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     fontSize: 18,
-    color: "#CAF0F8",
+    color: "white",
     fontWeight: "800",
     marginBottom: 10,
     marginTop: 50,
+    borderRadius: 10,
+    borderColor: "orange",
+    borderWidth: 2,
+    padding: 20,
   },
 });
