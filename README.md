@@ -29,4 +29,30 @@ To successfully install and run the CalorieTrackerMobile app locally, you will n
   ```sh
   npx expo start
   ```
-  ## User Interface
+ ## User Interface
+1. image: Starting screen.
+2. image: Setting icon pressed.
+3. image: Search result of "400g carbonara"
+<div style="display: flex;  ">
+  <img src="/UIScreenShots/HomeNoCalories.PNG" style="width: 300px; "/>
+  <img src="/UIScreenShots/Settings.PNG" width="300"/>
+  <img src="/UIScreenShots/Search.PNG" width="300"/>
+</div>
+
+4. image: Calories and Proteins added and food not found in search message.
+5. image: History page.
+6. image: Barcode scanner start
+<div style="display: flex;  ">
+  <img src="/UIScreenShots/HomeWithCalories.PNG" style="width: 300px; "/>
+  <img src="/UIScreenShots/History.PNG" width="300"/>
+  <img src="/UIScreenShots/ScannerStart.PNG" width="300"/>
+</div>
+
+7. image: Scanner after pressing "start scanning".
+8. image: Scan result if item found.
+9. image: Scan result if item not found.
+<div style="display: flex;  ">
+  <img src="/UIScreenShots/ScannerScanning.PNG" style="width: 300px; "/>
+  <img src="/UIScreenShots/ScannerResult.PNG" width="300"/>
+  <img src="/UIScreenShots/ScannerNoItemFound.PNG" width="300"/>
+</div>
